@@ -8,7 +8,7 @@ on:
 
 env:
   PRODUCT_NAME: MemPalace
-  BUNDLE_ID: com.mempalace.mac
+  VERSION: ${{ github.ref_name }}
 
 jobs:
   build:
@@ -17,13 +17,11 @@ jobs:
       matrix:
         include:
           - arch: x86_64
-            suffix: ''
             arch_name: intel
           - arch: arm64
-            suffix: '-arm64'
             arch_name: apple-silicon
 
-    name: Build ${{ matrix.arch_name }} (macOS ${{ matrix.arch }})
+    name: Build ${{ matrix.arch_name }}
     runs-on: macos-14
 
     steps:
@@ -33,13 +31,11 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app && xcodebuild -version
-
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Build
+      - name: Build ${{ matrix.arch_name }}
+        id: build
         run: |
           xcodebuild \
             -project MemPalace.xcodeproj \
@@ -47,41 +43,39 @@ jobs:
             -configuration Release \
             -arch ${{ matrix.arch }} \
             -derivedDataPath ./DerivedData \
-            build CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tail -20
+            build CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 
       - name: Locate .app
-        id: app
+        id: locate
         run: |
           APP=$(find ./DerivedData -name "*.app" -type d | head -1)
           echo "path=$APP" >> $GITHUB_OUTPUT
           echo "Found: $APP"
 
-      - name: Create .app zip (${{ matrix.arch_name }})
+      - name: Package zip (${{ matrix.arch_name }})
         run: |
           mkdir -p output
-          APP="${{ steps.app.outputs.path }}"
-          ZIP_NAME="${{ env.PRODUCT_NAME }}-${{ matrix.arch_name }}-${GITHUB_REF#refs/tags/}.zip"
-          cd "$(dirname "$APP")"
+          APP="${{ steps.locate.outputs.path }}"
+          VERSION="${VERSION#v}"
+          ZIP_NAME="${{ env.PRODUCT_NAME }}-${{ matrix.arch_name }}-${VERSION}.zip"
+          cd "$APP/.."
           zip -r "$GITHUB_WORKSPACE/output/$ZIP_NAME" "$(basename "$APP")"
           echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
 
-      - name: Create DMG (${{ matrix.arch_name }})
+      - name: Package DMG (${{ matrix.arch_name }})
         run: |
           mkdir -p output
-          APP="${{ steps.app.outputs.path }}"
-          DMG_NAME="${{ env.PRODUCT_NAME }}-${{ matrix.arch_name }}-${GITHUB_REF#refs/tags/}.dmg"
-          VOL_NAME="${{ env.PRODUCT_NAME }} ${{ matrix.arch_name }}"
-          hdiutil create -size 200m -volname "$VOL_NAME" -fs HFS+ -srcfolder "$APP" "$GITHUB_WORKSPACE/output/$DMG_NAME"
+          APP="${{ steps.locate.outputs.path }}"
+          VERSION="${VERSION#v}"
+          DMG_NAME="${{ env.PRODUCT_NAME }}-${{ matrix.arch_name }}-${VERSION}.dmg"
+          hdiutil create -size 200m -volname "${{ env.PRODUCT_NAME }}" -fs HFS+ -srcfolder "$APP" "$GITHUB_WORKSPACE/output/$DMG_NAME"
           echo "dmg_name=$DMG_NAME" >> $GITHUB_OUTPUT
 
-      - name: Upload artifacts
+      - name: Upload artifacts (${{ matrix.arch_name }})
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.arch_name }}-artifacts
-          path: |
-            output/*.zip
-            output/*.dmg
+          path: output/*
 
   release:
     needs: build
@@ -94,19 +88,10 @@ jobs:
         with:
           path: artifacts
 
-      - name: Display structure
-        run: find artifacts -type f
-
-      - name: Create artifact directory
-        run: mkdir -p release-assets
-
-      - name: Collect release assets
+      - name: Collect and list release assets
         run: |
-          for dir in artifacts/*/; do
-            for f in "$dir"*.zip "$dir"*.dmg; do
-              [ -f "$f" ] && cp "$f" release-assets/
-            done
-          done
+          mkdir -p release-assets
+          find artifacts -type f \( -name "*.zip" -o -name "*.dmg" \) -exec cp {} release-assets/ \;
           ls -lh release-assets/
 
       - name: Create GitHub Release
