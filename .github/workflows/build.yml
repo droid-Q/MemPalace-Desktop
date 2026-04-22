@@ -69,7 +69,7 @@ jobs:
           APP="${{ steps.app.outputs.path }}"
           DMG_NAME="${{ env.PRODUCT_NAME }}-${{ matrix.arch_name }}-${GITHUB_REF#refs/tags/}.dmg"
           VOL_NAME="${{ env.PRODUCT_NAME }} ${{ matrix.arch_name }}"
-          hdiutil create -size 200m -volname "$VOL_NAME" -fs HFS+ -srcfolder "$(dirname "$APP")" "$(dirname "$APP")/../output/$DMG_NAME" 2>&1 | tail -5
+          hdiutil create -size 200m -volname "$VOL_NAME" -fs HFS+ -srcfolder "$APP" "$GITHUB_WORKSPACE/output/$DMG_NAME"
           echo "dmg_name=$DMG_NAME" >> $GITHUB_OUTPUT
 
       - name: Upload artifacts
