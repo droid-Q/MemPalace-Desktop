@@ -32,7 +32,10 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          xcodegen generate
+          # Downgrade objectVersion for Xcode 15.4 compatibility
+          sed -i '' 's/objectVersion = 77/objectVersion = 56/g' MemPalace.xcodeproj/project.pbxproj
 
       - name: Build ${{ matrix.arch_name }}
         id: build
