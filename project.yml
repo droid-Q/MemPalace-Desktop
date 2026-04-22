@@ -1,0 +1,33 @@
+name: MemPalace
+options:
+  bundleIdPrefix: com.mempalace
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    PRODUCT_NAME: MemPalace
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  MemPalace:
+    type: application
+    platform: macOS
+    sources:
+      - MemPalace
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mempalace.mac
+        INFOPLIST_FILE: MemPalace/Info.plist
+        CODE_SIGN_ENTITLEMENTS: MemPalace/MemPalace.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        COMBINE_HIDPI_IMAGES: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+    entitlements:
+      path: MemPalace/MemPalace.entitlements
