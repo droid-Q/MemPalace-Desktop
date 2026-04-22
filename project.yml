@@ -20,7 +20,7 @@ targets:
     type: application
     platform: macOS
     sources:
-      - MemPalace
+      - .
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mempalace.mac
