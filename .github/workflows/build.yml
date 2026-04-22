@@ -24,7 +24,7 @@ jobs:
             arch_name: apple-silicon
 
     name: Build ${{ matrix.arch_name }} (macOS ${{ matrix.arch }})
-    runs-on: macos-13
+    runs-on: macos-14
 
     steps:
       - name: Checkout
