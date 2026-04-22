@@ -17,8 +17,9 @@ A native macOS application for managing your [MemPalace](https://github.com/MemP
 ## Installation
 
 1. Clone this repository
-2. Open `MemPalace.xcodeproj` in Xcode
-3. Build and run (Cmd+R)
+2. Generate the Xcode project: `xcodegen generate`
+3. Open `MemPalace.xcodeproj` in Xcode
+4. Build and run (Cmd+R)
 
 Or download a pre-built release from the [Releases](https://github.com/droid-Q/MemPalace-Desktop/releases) page.
 

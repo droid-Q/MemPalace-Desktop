@@ -1,9 +1,11 @@
 # Xcode
 .DS_Store
-build/
+*.xcuserstate
+xcuserdata/
+
+# Xcode project and workspace files — managed by Xcode, not git
 *.xcodeproj/
 *.xcworkspace/
-xcuserdata/
 DerivedData/
 
 # Swift Package Manager

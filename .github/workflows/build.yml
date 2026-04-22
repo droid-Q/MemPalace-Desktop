@@ -1,0 +1,117 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  PRODUCT_NAME: MemPalace
+  BUNDLE_ID: com.mempalace.mac
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            suffix: ''
+            arch_name: intel
+          - arch: arm64
+            suffix: '-arm64'
+            arch_name: apple-silicon
+
+    name: Build ${{ matrix.arch_name }} (macOS ${{ matrix.arch }})
+    runs-on: macos-13
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app && xcodebuild -version
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project MemPalace.xcodeproj \
+            -scheme MemPalace \
+            -configuration Release \
+            -arch ${{ matrix.arch }} \
+            -derivedDataPath ./DerivedData \
+            build CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tail -20
+
+      - name: Locate .app
+        id: app
+        run: |
+          APP=$(find ./DerivedData -name "*.app" -type d | head -1)
+          echo "path=$APP" >> $GITHUB_OUTPUT
+          echo "Found: $APP"
+
+      - name: Create .app zip (${{ matrix.arch_name }})
+        run: |
+          mkdir -p output
+          APP="${{ steps.app.outputs.path }}"
+          ZIP_NAME="${{ env.PRODUCT_NAME }}-${{ matrix.arch_name }}-${GITHUB_REF#refs/tags/}.zip"
+          cd "$(dirname "$APP")"
+          zip -r "$GITHUB_WORKSPACE/output/$ZIP_NAME" "$(basename "$APP")"
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create DMG (${{ matrix.arch_name }})
+        run: |
+          mkdir -p output
+          APP="${{ steps.app.outputs.path }}"
+          DMG_NAME="${{ env.PRODUCT_NAME }}-${{ matrix.arch_name }}-${GITHUB_REF#refs/tags/}.dmg"
+          VOL_NAME="${{ env.PRODUCT_NAME }} ${{ matrix.arch_name }}"
+          hdiutil create -size 200m -volname "$VOL_NAME" -fs HFS+ -srcfolder "$(dirname "$APP")" "$(dirname "$APP")/../output/$DMG_NAME" 2>&1 | tail -5
+          echo "dmg_name=$DMG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch_name }}-artifacts
+          path: |
+            output/*.zip
+            output/*.dmg
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: find artifacts -type f
+
+      - name: Create artifact directory
+        run: mkdir -p release-assets
+
+      - name: Collect release assets
+        run: |
+          for dir in artifacts/*/; do
+            for f in "$dir"*.zip "$dir"*.dmg; do
+              [ -f "$f" ] && cp "$f" release-assets/
+            done
+          done
+          ls -lh release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
